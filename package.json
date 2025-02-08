@@ -1,0 +1,17 @@
+{
+  "name": "async-data-structure",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && ndoe ./build/build.js",
+    "test": "tsc && node ./build/test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "GPL-3.0-only",
+  "type": "commonjs",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.13.1"
+  }
+}

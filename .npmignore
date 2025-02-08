@@ -1,0 +1,6 @@
+src
+misc
+build
+node_modules
+
+tscconfig.json
