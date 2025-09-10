@@ -1,10 +1,10 @@
 {
   "name": "async-data-structure",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "index.js",
   "scripts": {
     "build": "tsc && node ./build/build.js",
-    "test": "tsc && node ./test.js"
+    "test": "tsc && node ./build/test.js"
   },
   "keywords": [],
   "author": "",

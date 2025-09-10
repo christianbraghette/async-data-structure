@@ -12,7 +12,7 @@ async function copyPath(...srcs: Array<string>) {
         const entries = await fs.readdir(src, { withFileTypes: true });
 
         for (const entry of entries) {
-            if (!entry.name.includes("build") && !entry.name.includes("test.d.ts")) {
+            if (!entry.name.includes("build") && !entry.name.includes("test")) {
                 const srcPath = join(src, entry.name);
                 const destPath = join(dest, entry.name);
 
