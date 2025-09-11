@@ -1,6 +1,6 @@
 export abstract class AtomicNumber {
 
-    protected constructor(private readonly int: Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array, public readonly byteLength: number) { }
+    public constructor(private readonly int: Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array, public readonly byteLength: number) { }
 
     /** Returns the value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public get(): number {
