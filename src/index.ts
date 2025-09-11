@@ -1,131 +1,142 @@
-/*export abstract class WorkerMutex {
-    private readonly sem: Int32Array;
+export abstract class AtomicNumber {
 
-    protected constructor(sharedBuffer?: SharedArrayBuffer)
-    protected constructor(sharedBuffer: SharedArrayBuffer, index?: number)
-    protected constructor(public readonly sharedBuffer: SharedArrayBuffer = new SharedArrayBuffer(4), private readonly index: number = 0) {
-        this.sem = new Int32Array(sharedBuffer).fill(1);
-    }
+    protected constructor(private readonly int: Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array, public readonly byteLength: number) { }
 
-    protected acquireSync(): void {
-        while (true) {
-            if (Atomics.sub(this.sem, this.index, 1) === 1)
-                return;
-            Atomics.wait(this.sem, this.index, 0);
-        }
+    /** Returns the value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public get(): number {
+        return Atomics.load(this.int, 0);
     }
 
-    protected async acquire(): Promise<void> {
-        return new Promise(async (resolve, reject) => {
-            let old = Atomics.sub(this.sem, this.index, 1);
-
-            if (old > 0) {
-                resolve();
-                return;
-            }
-
-            const result = Atomics.waitAsync(this.sem, this.index, old - 1);
-            if (result.async) {
-                result.value.then(status => {
-                    if (status === "ok") resolve();
-                    else reject(new Error("wait failed: " + status));
-                });
-            } else {
-                reject(new Error("wait failed: " + result.value));
-            }
-        })
+    /** Stores a value, returning the new value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public set(value: number): number {
+        return Atomics.store(this.int, 0, value);
     }
 
-    protected release(): void {
-        Atomics.add(this.sem, this.index, 1);
-        Atomics.notify(this.sem, this.index, 1);
+    /** Adds a value to the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public add(value: number = 1): number {
+        return Atomics.add(this.int, 0, value);
     }
 
-    protected async execute<T>(executor: () => Promise<T> | T) {
-        await this.acquire();
-        const res = await executor();
-        this.release()
-        return res;
+    /** Subtracts a value from the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public sub(value: number = 1): number {
+        return Atomics.sub(this.int, 0, value);
     }
 
-    protected executeSync<T>(executor: () => T) {
-        this.acquireSync();
-        const res = executor();
-        this.release()
-        return res;
+    /** Stores the bitwise AND of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public and(value: number): number {
+        return Atomics.and(this.int, 0, value);
     }
-}*/
 
-export class AtomicInt implements Atomics {
-    private int: Int8Array | Int16Array | Int32Array;
+    /** Stores the bitwise OR of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public or(value: number): number {
+        return Atomics.or(this.int, 0, value);
+    }
 
-    public constructor(public readonly byteLength: number = 4, initialValue = 0) {
-        if (byteLength === 1)
-            this.int = new Int8Array(1).fill(initialValue);
-        else if (byteLength === 2)
-            this.int = new Int16Array(1).fill(initialValue);
-        else if (byteLength === 4)
-            this.int = new Int32Array(1).fill(initialValue);
-        else
-            throw new Error("Wrong byteLength");
+    /** Stores the bitwise XOR of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public xor(value: number): number {
+        return Atomics.xor(this.int, 0, value);
     }
-    add(typedArray: unknown, index: unknown, value: unknown): number | bigint {
+
+    /** Replaces the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public exchange(value: number): number {
+        return Atomics.exchange(this.int, 0, value);
+    }
+
+    /** Replaces the value if the original value equals the given expected value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    public compareExchange(expectedValue: number, replacementValue: number): number {
+        return Atomics.compareExchange(this.int, 0, expectedValue, replacementValue);
+    }
+
+    /** Returns a value indicating whether high-performance algorithms can use atomic operations (true) or must use locks (false) for the given number of bytes-per-element of a typed array. */
+    public isLockFree(): boolean {
+        return Atomics.isLockFree(this.byteLength);
+    }
+
+    /*public wait(value: number, timeout?: number): "ok" | "not-equal" | "timed-out" {
         throw new Error("Method not implemented.");
     }
-    and(typedArray: unknown, index: unknown, value: unknown): number | bigint {
+    public notify(count?: number): number {
         throw new Error("Method not implemented.");
-    }
-    compareExchange(typedArray: unknown, index: unknown, expectedValue: unknown, replacementValue: unknown): number | bigint {
-        throw new Error("Method not implemented.");
-    }
-    exchange(typedArray: unknown, index: unknown, value: unknown): number | bigint {
-        throw new Error("Method not implemented.");
-    }
-    isLockFree(size: number): boolean {
-        throw new Error("Method not implemented.");
-    }
-    load(typedArray: unknown, index: unknown): number | bigint {
-        throw new Error("Method not implemented.");
-    }
-    or(typedArray: unknown, index: unknown, value: unknown): number | bigint {
-        throw new Error("Method not implemented.");
-    }
-    store(typedArray: unknown, index: unknown, value: unknown): number | bigint {
-        throw new Error("Method not implemented.");
-    }
-    sub(typedArray: unknown, index: unknown, value: unknown): number | bigint {
-        throw new Error("Method not implemented.");
-    }
-    wait(typedArray: unknown, index: unknown, value: unknown, timeout?: unknown): "ok" | "not-equal" | "timed-out" {
-        throw new Error("Method not implemented.");
-    }
-    notify(typedArray: unknown, index: unknown, count?: unknown): number {
-        throw new Error("Method not implemented.");
-    }
-    xor(typedArray: unknown, index: unknown, value: unknown): number | bigint {
-        throw new Error("Method not implemented.");
-    }
-    pause(n?: number): void {
-        throw new Error("Method not implemented.");
-    }
-    [Symbol.toStringTag]: "object AtomicInt";
+    }*/
+
+    [Symbol.toStringTag] = "object AtomicNumber";
 }
 
-type ReleaseFn = Function;
+export class AtomicInt8 extends AtomicNumber {
+    public static readonly MAX = 127;
+    public static readonly MIN = -128;
+
+    public constructor(initialValue = 0) {
+        super(new Int8Array(1).fill(initialValue), 4);
+    }
+}
+
+export class AtomicInt16 extends AtomicNumber {
+    public static readonly MAX = 32767;
+    public static readonly MIN = -32768;
+
+    public constructor(initialValue = 0) {
+        super(new Int16Array(1).fill(initialValue), 4);
+    }
+}
+
+export class AtomicInt32 extends AtomicNumber {
+    public static readonly MAX = 2147483647;
+    public static readonly MIN = -2147483648;
+
+    public constructor(initialValue = 0) {
+        super(new Int32Array(1).fill(initialValue), 4);
+    }
+}
+
+export class AtomicUint8 extends AtomicNumber {
+    public static readonly MAX = 255;
+    public static readonly MIN = 0;
+
+    public constructor(initialValue = 0) {
+        super(new Uint8Array(1).fill(initialValue), 4);
+    }
+}
+
+export class AtomicUint16 extends AtomicNumber {
+    public static readonly MAX = 65535;
+    public static readonly MIN = 0;
+
+    public constructor(initialValue = 0) {
+        super(new Uint16Array(1).fill(initialValue), 4);
+    }
+}
+
+export class AtomicUint32 extends AtomicNumber {
+    public static readonly MAX = 4294967295;
+    public static readonly MIN = 0;
+
+    public constructor(initialValue = 0) {
+        super(new Uint32Array(1).fill(initialValue), 4);
+    }
+}
+
+type ReleaseFunction = () => void;
 
 export abstract class AsyncMutex {
-    private readonly sem = new Int32Array(1).fill(1);
+    private readonly count = new AtomicInt32(1);
     private readonly queue = new Array<() => void>();
 
-    protected acquire(): Promise<void> {
-        const old = Atomics.sub(this.sem, 0, 1);
+    protected acquire(): Promise<void>
+    protected acquire(callbackfn: (release: ReleaseFunction) => void): void
+    protected acquire(callbackfn?: (release: ReleaseFunction) => void): Promise<void> | void {
+        if (callbackfn) {
+            this.acquire().then(() => callbackfn(() => this.release())).catch((error) => { throw error; });
+            return;
+        }
+        const old = this.count.sub();
         if (old > 0)
             return Promise.resolve();
         return new Promise<void>((resolve) => this.queue.push(resolve))
     }
 
     protected release(): void {
-        const old = Atomics.add(this.sem, 0, 1);
+        const old = this.count.add();
         if (old < 0) {
             const next = this.queue.shift()!;
             next();
@@ -133,7 +144,7 @@ export abstract class AsyncMutex {
     }
 
     protected isLocked() {
-        return Atomics.load(this.sem, 0) < 1;
+        return this.count.get() < 1;
     };
 
     protected async execute<T>(executor: () => Promise<T> | T): Promise<T> {
@@ -143,33 +154,34 @@ export abstract class AsyncMutex {
         return res;
     }
 
-    protected executeSync(callbackfn: (release: ReleaseFn) => void): void {
-        this.acquire().finally(() => {
-            let released = false;
-            callbackfn(() => {
-                this.release();
-                released = true;
-            })
-            if (!released)
-                this.release();
-        });
-        return;
-    }
-
 }
 
 export class SafeVar<T> extends AsyncMutex {
-    public constructor(private variable: T) {
+    public constructor(private value: T) {
         super();
     }
 
     public get(): Promise<T> {
-        return this.execute(() => this.variable);
+        return this.execute(() => this.value);
     }
 
     public set(value: T): Promise<T> {
-        return this.execute(() => this.variable = value);
+        return this.execute(() => this.value = value);
     }
+
+    public setIf(expectedValue: T, replacementValue: T): Promise<T> {
+        return this.execute(() => (this.value === expectedValue) ? this.value = replacementValue : this.value);
+    }
+
+    public do<S>(executor: (variable: T) => Promise<S> | S): Promise<S> {
+        return this.execute(async () => await executor(this.value))
+    }
+}
+
+export function safeVar<T>(value: T): SafeVar<T>;
+export function safeVar<T>(value?: T): SafeVar<T | undefined>;
+export function safeVar<T>(value?: T): SafeVar<T | undefined> {
+    return new SafeVar(value);
 }
 
 interface QueueIteraror<T> extends ArrayIterator<T> { };
@@ -353,8 +365,6 @@ export class AsyncMap<K, T> extends AsyncMutex {
     }
 
     /** A String value that is used in the creation of the default string description of an object. Called by the built-in method Object.prototype.toString. */
-    public get [Symbol.toStringTag](): string {
-        return "object AsyncMap";
-    };
+    [Symbol.toStringTag] = "object AsyncMap";
 
 }

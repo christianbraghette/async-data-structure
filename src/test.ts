@@ -1,6 +1,10 @@
-import { AsyncMap } from "./index.js";
+import { AsyncMap, safeVar } from "./index.js";
 
 console.log("Started!");
+
+const x = safeVar(10);
+
+x.get().then(console.log);
 
 const map = new AsyncMap<number, string>();
 
