@@ -1,4 +1,4 @@
-import { AtomicInt32, AtomicNumber } from './atomics'
+import { AtomicInt32, AtomicInteger } from './atomics'
 
 /**
  * Release a previously acquired permit back to the semaphore.
@@ -12,10 +12,10 @@ export type ReleaseFunction = () => void;
  * to a finite number of resources (permits).
  */
 export class Semaphore {
-    private readonly count: AtomicNumber;
+    private readonly count: AtomicInteger;
     private readonly queue = new Array<{ resolve: (release: ReleaseFunction) => void, reject: (reason: 'reset' | 'error') => void }>();
 
-    public constructor(private readonly maxCount: number, count?: AtomicNumber) {
+    public constructor(private readonly maxCount: number, count?: AtomicInteger) {
         this.count = count ?? new AtomicInt32(maxCount);
     }
 

@@ -1,72 +1,269 @@
-export abstract class AtomicNumber {
-    declare public readonly MAX: number;
-    declare public readonly MIN: number;
-    declare public readonly byteLength: number
+type TypedArray = Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array
 
-    public constructor(private readonly int: Int8Array | Int16Array | Int32Array | Uint8Array | Uint16Array | Uint32Array) { }
+export interface AtomicNumber {
+    readonly MAX: number;
+    readonly MIN: number;
+    readonly byteLength: number
 
     /** Returns the value. Until this atomic operation completes, any other read or write operation against the array will block. */
-    public get(): number {
-        return Atomics.load(this.int, 0);
-    }
+    get(): number
 
     /** Stores a value, returning the new value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    set(value: number): number
+
+    /** Adds a value to the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    add(value?: number): number
+
+    /** Subtracts a value from the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    sub(value?: number): number
+
+    /** Stores the bitwise AND of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    and(value: number): number
+
+    /** Stores the bitwise OR of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    or(value: number): number
+
+    /** Stores the bitwise XOR of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    xor(value: number): number
+
+    /** Replaces the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    exchange(value: number): number
+
+    /** Replaces the value if the original value equals the given expected value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
+    compareExchange(expectedValue: number, replacementValue: number): number
+
+    /** Returns a value indicating whether high-performance algorithms can use atomic operations (true) or must use locks (false) for the given number of bytes-per-element of a typed array. */
+    isLockFree(): boolean
+
+    /*public wait(value: number, timeout?: number): "ok" | "not-equal" | "timed-out"
+    public notify(count?: number): number*/
+}
+
+export abstract class AtomicInteger implements AtomicNumber {
+    declare public readonly MAX: number;
+    declare public readonly MIN: number;
+    declare public readonly byteLength: number;
+
+    public constructor(private readonly array: TypedArray) { }
+
+    public get(): number {
+        return Atomics.load(this.array, 0);
+    }
+
+    public set(value: number): number {
+        if (!Number.isSafeInteger(value) || value > this.MAX || value < this.MIN)
+            throw new Error("Value out of bound");
+        return Atomics.store(this.array, 0, value);
+    }
+
+    public add(value: number = 1): number {
+        const old = Atomics.add(this.array, 0, value);
+        if (!Number.isSafeInteger(value) || old + value > this.MAX) {
+            Atomics.store(this.array, 0, old);
+            throw new Error("AtomicNumber out of bound")
+        }
+        return old;
+    }
+
+    public sub(value: number = 1): number {
+        const old = Atomics.sub(this.array, 0, value);
+        if (!Number.isSafeInteger(value) || old - value < this.MIN) {
+            Atomics.store(this.array, 0, old);
+            throw new Error("AtomicNumber out of bound")
+        }
+        return old;
+    }
+
+    public and(value: number): number {
+        if (!Number.isSafeInteger(value))
+            throw new Error("Value out of bound");
+        return Atomics.and(this.array, 0, value);
+    }
+
+    public or(value: number): number {
+        if (!Number.isSafeInteger(value))
+            throw new Error("Value out of bound");
+        return Atomics.or(this.array, 0, value);
+    }
+
+    public xor(value: number): number {
+        if (!Number.isSafeInteger(value))
+            throw new Error("Value out of bound");
+        return Atomics.xor(this.array, 0, value);
+    }
+
+    public exchange(value: number): number {
+        if (!Number.isSafeInteger(value) || value > this.MAX || value < this.MIN)
+            throw new Error("Value out of bound");
+        return Atomics.exchange(this.array, 0, value);
+    }
+
+    public compareExchange(expectedValue: number, replacementValue: number): number {
+        if (!Number.isSafeInteger(expectedValue))
+            throw new Error("ExpectedValue out of bound");
+        if (!Number.isSafeInteger(replacementValue) || replacementValue > this.MAX || replacementValue < this.MIN)
+            throw new Error("ReplacementValue out of bound");
+        return Atomics.compareExchange(this.array, 0, expectedValue, replacementValue);
+    }
+
+    public isLockFree(): boolean {
+        return Atomics.isLockFree(this.byteLength);
+    }
+
+    /*public wait(value: number, timeout?: number): "ok" | "not-equal" | "timed-out" {
+        throw new Error("Method not implemented.");
+    }
+    public notify(count?: number): number {
+        throw new Error("Method not implemented.");
+    }*/
+
+    public toString(): string {
+        return `AtomicInteger(${this.get()})`;
+    }
+
+    public toJSON(): number {
+        return this.get();
+    }
+
+    [Symbol.toStringTag] = "object AtomicInteger";
+}
+
+export class AtomicInt8 extends AtomicInteger {
+    public readonly MAX = 127;
+    public readonly MIN = -128;
+    public readonly byteLength = 1;
+
+    public constructor(initialValue = 0) {
+        super(new Int8Array(1).fill(initialValue));
+    }
+}
+
+export class AtomicInt16 extends AtomicInteger {
+    public readonly MAX = 32767;
+    public readonly MIN = -32768;
+    public readonly byteLength = 2;
+
+    public constructor(initialValue = 0) {
+        super(new Int16Array(1).fill(initialValue));
+    }
+}
+
+export class AtomicInt32 extends AtomicInteger {
+    public readonly MAX = 2147483647;
+    public readonly MIN = -2147483648;
+    public readonly byteLength = 4;
+
+    public constructor(initialValue = 0) {
+        super(new Int32Array(1).fill(initialValue));
+    }
+}
+
+export class AtomicUint8 extends AtomicInteger {
+    public readonly MAX = 255;
+    public readonly MIN = 0;
+    public readonly byteLength = 1;
+
+    public constructor(initialValue = 0) {
+        super(new Uint8Array(1).fill(initialValue));
+    }
+}
+
+export class AtomicUint16 extends AtomicInteger {
+    public readonly MAX = 65535;
+    public readonly MIN = 0;
+    public readonly byteLength = 2;
+
+    public constructor(initialValue = 0) {
+        super(new Uint16Array(1).fill(initialValue));
+    }
+}
+
+export class AtomicUint32 extends AtomicInteger {
+    public readonly MAX = 4294967295;
+    public readonly MIN = 0;
+    public readonly byteLength = 4;
+
+    public constructor(initialValue = 0) {
+        super(new Uint32Array(1).fill(initialValue));
+    }
+}
+
+function bitConvert(value: number): bigint
+function bitConvert(value: bigint): number
+function bitConvert(value: number | bigint): number | bigint {
+    const buffer = new ArrayBuffer(8);
+    const bigInt = new BigUint64Array(buffer);
+    const float = new Float64Array(buffer);
+    if (typeof value === 'bigint') {
+        bigInt[0] = value;
+        return float[0];
+    }
+    float[0] = value;
+    return bigInt[0];
+}
+
+class AtomicNumberConstructor {
+    public readonly MAX = Number.MAX_VALUE;
+    public readonly MIN = Number.MIN_VALUE;
+    public readonly byteLength: number = 8;
+    private readonly array: BigUint64Array;
+
+    public constructor(initialValue: number = 0) {
+        this.array = new BigUint64Array(1).fill(BigInt(initialValue));
+    }
+
+    public get(): number {
+        return bitConvert(Atomics.load(this.array, 0));
+    }
+
     public set(value: number): number {
         if (value > this.MAX || value < this.MIN)
             throw new Error("Value out of bound");
-        return Atomics.store(this.int, 0, value);
+        return bitConvert(Atomics.store(this.array, 0, bitConvert(value)));
     }
 
-    /** Adds a value to the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public add(value: number = 1): number {
-        const old = Atomics.add(this.int, 0, value);
+        const old = bitConvert(Atomics.add(this.array, 0, bitConvert(value)));
         if (old + value > this.MAX) {
-            Atomics.store(this.int, 0, old);
+            Atomics.store(this.array, 0, bitConvert(old));
             throw new Error("AtomicNumber out of bound")
         }
         return old;
     }
 
-    /** Subtracts a value from the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public sub(value: number = 1): number {
-        const old = Atomics.sub(this.int, 0, value);
+        const old = bitConvert(Atomics.sub(this.array, 0, bitConvert(value)));
         if (old - value < this.MIN) {
-            Atomics.store(this.int, 0, old);
+            Atomics.store(this.array, 0, bitConvert(old));
             throw new Error("AtomicNumber out of bound")
         }
         return old;
     }
 
-    /** Stores the bitwise AND of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public and(value: number): number {
-        return Atomics.and(this.int, 0, value);
+        return bitConvert(Atomics.and(this.array, 0, bitConvert(value)));
     }
 
-    /** Stores the bitwise OR of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public or(value: number): number {
-        return Atomics.or(this.int, 0, value);
+        return bitConvert(Atomics.or(this.array, 0, bitConvert(value)));
     }
 
-    /** Stores the bitwise XOR of a value with the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public xor(value: number): number {
-        return Atomics.xor(this.int, 0, value);
+        return bitConvert(Atomics.xor(this.array, 0, bitConvert(value)));
     }
 
-    /** Replaces the value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public exchange(value: number): number {
         if (value > this.MAX || value < this.MIN)
             throw new Error("Value out of bound");
-        return Atomics.exchange(this.int, 0, value);
+        return bitConvert(Atomics.exchange(this.array, 0, bitConvert(value)));
     }
 
-    /** Replaces the value if the original value equals the given expected value, returning the original value. Until this atomic operation completes, any other read or write operation against the array will block. */
     public compareExchange(expectedValue: number, replacementValue: number): number {
         if (replacementValue > this.MAX || replacementValue < this.MIN)
             throw new Error("ReplacementValue out of bound");
-        return Atomics.compareExchange(this.int, 0, expectedValue, replacementValue);
+        return bitConvert(Atomics.compareExchange(this.array, 0, bitConvert(expectedValue), bitConvert(replacementValue)));
     }
 
-    /** Returns a value indicating whether high-performance algorithms can use atomic operations (true) or must use locks (false) for the given number of bytes-per-element of a typed array. */
     public isLockFree(): boolean {
         return Atomics.isLockFree(this.byteLength);
     }
@@ -89,62 +286,10 @@ export abstract class AtomicNumber {
     [Symbol.toStringTag] = "object AtomicNumber";
 }
 
-export class AtomicInt8 extends AtomicNumber {
-    public readonly MAX = 127;
-    public readonly MIN = -128;
-    public readonly byteLength = 1;
-
-    public constructor(initialValue = 0) {
-        super(new Int8Array(1).fill(initialValue));
-    }
-}
-
-export class AtomicInt16 extends AtomicNumber {
-    public readonly MAX = 32767;
-    public readonly MIN = -32768;
-    public readonly byteLength = 2;
-
-    public constructor(initialValue = 0) {
-        super(new Int16Array(1).fill(initialValue));
-    }
-}
-
-export class AtomicInt32 extends AtomicNumber {
-    public readonly MAX = 2147483647;
-    public readonly MIN = -2147483648;
-    public readonly byteLength = 4;
-
-    public constructor(initialValue = 0) {
-        super(new Int32Array(1).fill(initialValue));
-    }
-}
-
-export class AtomicUint8 extends AtomicNumber {
-    public readonly MAX = 255;
-    public readonly MIN = 0;
-    public readonly byteLength = 1;
-
-    public constructor(initialValue = 0) {
-        super(new Uint8Array(1).fill(initialValue));
-    }
-}
-
-export class AtomicUint16 extends AtomicNumber {
-    public readonly MAX = 65535;
-    public readonly MIN = 0;
-    public readonly byteLength = 2;
-
-    public constructor(initialValue = 0) {
-        super(new Uint16Array(1).fill(initialValue));
-    }
-}
-
-export class AtomicUint32 extends AtomicNumber {
-    public readonly MAX = 4294967295;
-    public readonly MIN = 0;
-    public readonly byteLength = 4;
-
-    public constructor(initialValue = 0) {
-        super(new Uint32Array(1).fill(initialValue));
+export class AtomicNumber {
+    constructor(initialValue?: number) {
+        const inner = new AtomicNumberConstructor(initialValue);
+        Object.setPrototypeOf(inner, AtomicNumber.prototype);
+        return inner;
     }
 }
