@@ -35,6 +35,9 @@ export interface AtomicNumber {
     /** Returns a value indicating whether high-performance algorithms can use atomic operations (true) or must use locks (false) for the given number of bytes-per-element of a typed array. */
     isLockFree(): boolean
 
+    /** The ArrayBuffer instance referenced by the array. */
+    readonly buffer: ArrayBufferLike
+
     /*public wait(value: number, timeout?: number): "ok" | "not-equal" | "timed-out"
     public notify(count?: number): number*/
 }
@@ -44,31 +47,35 @@ export abstract class AtomicInteger implements AtomicNumber {
     declare public readonly MIN: number;
     declare public readonly byteLength: number;
 
-    public constructor(private readonly array: TypedArray) { }
+    public constructor(private readonly array: TypedArray, private readonly index: number) { }
+
+    public get buffer(): ArrayBufferLike {
+        return this.array.buffer;
+    }
 
     public get(): number {
-        return Atomics.load(this.array, 0);
+        return Atomics.load(this.array, this.index);
     }
 
     public set(value: number): number {
         if (!Number.isSafeInteger(value) || value > this.MAX || value < this.MIN)
             throw new Error("Value out of bound");
-        return Atomics.store(this.array, 0, value);
+        return Atomics.store(this.array, this.index, value);
     }
 
     public add(value: number = 1): number {
         const old = Atomics.add(this.array, 0, value);
         if (!Number.isSafeInteger(value) || old + value > this.MAX) {
-            Atomics.store(this.array, 0, old);
+            Atomics.store(this.array, this.index, old);
             throw new Error("AtomicNumber out of bound")
         }
         return old;
     }
 
     public sub(value: number = 1): number {
-        const old = Atomics.sub(this.array, 0, value);
+        const old = Atomics.sub(this.array, this.index, value);
         if (!Number.isSafeInteger(value) || old - value < this.MIN) {
-            Atomics.store(this.array, 0, old);
+            Atomics.store(this.array, this.index, old);
             throw new Error("AtomicNumber out of bound")
         }
         return old;
@@ -77,25 +84,25 @@ export abstract class AtomicInteger implements AtomicNumber {
     public and(value: number): number {
         if (!Number.isSafeInteger(value))
             throw new Error("Value out of bound");
-        return Atomics.and(this.array, 0, value);
+        return Atomics.and(this.array, this.index, value);
     }
 
     public or(value: number): number {
         if (!Number.isSafeInteger(value))
             throw new Error("Value out of bound");
-        return Atomics.or(this.array, 0, value);
+        return Atomics.or(this.array, this.index, value);
     }
 
     public xor(value: number): number {
         if (!Number.isSafeInteger(value))
             throw new Error("Value out of bound");
-        return Atomics.xor(this.array, 0, value);
+        return Atomics.xor(this.array, this.index, value);
     }
 
     public exchange(value: number): number {
         if (!Number.isSafeInteger(value) || value > this.MAX || value < this.MIN)
             throw new Error("Value out of bound");
-        return Atomics.exchange(this.array, 0, value);
+        return Atomics.exchange(this.array, this.index, value);
     }
 
     public compareExchange(expectedValue: number, replacementValue: number): number {
@@ -103,7 +110,7 @@ export abstract class AtomicInteger implements AtomicNumber {
             throw new Error("ExpectedValue out of bound");
         if (!Number.isSafeInteger(replacementValue) || replacementValue > this.MAX || replacementValue < this.MIN)
             throw new Error("ReplacementValue out of bound");
-        return Atomics.compareExchange(this.array, 0, expectedValue, replacementValue);
+        return Atomics.compareExchange(this.array, this.index, expectedValue, replacementValue);
     }
 
     public isLockFree(): boolean {
@@ -133,8 +140,8 @@ export class AtomicInt8 extends AtomicInteger {
     public readonly MIN = -128;
     public readonly byteLength = 1;
 
-    public constructor(initialValue = 0) {
-        super(new Int8Array(1).fill(initialValue));
+    public constructor(buffer?: ArrayBufferLike, index = 0) {
+        super(new Int8Array(buffer ?? new SharedArrayBuffer(1)), index);
     }
 }
 
@@ -143,8 +150,8 @@ export class AtomicInt16 extends AtomicInteger {
     public readonly MIN = -32768;
     public readonly byteLength = 2;
 
-    public constructor(initialValue = 0) {
-        super(new Int16Array(1).fill(initialValue));
+    public constructor(buffer?: ArrayBufferLike, index = 0) {
+        super(new Int16Array(buffer ?? new SharedArrayBuffer(2)), index);
     }
 }
 
@@ -153,8 +160,8 @@ export class AtomicInt32 extends AtomicInteger {
     public readonly MIN = -2147483648;
     public readonly byteLength = 4;
 
-    public constructor(initialValue = 0) {
-        super(new Int32Array(1).fill(initialValue));
+    public constructor(buffer?: ArrayBufferLike, index = 0) {
+        super(new Int32Array(buffer ?? new SharedArrayBuffer(4)), index);
     }
 }
 
@@ -163,8 +170,8 @@ export class AtomicUint8 extends AtomicInteger {
     public readonly MIN = 0;
     public readonly byteLength = 1;
 
-    public constructor(initialValue = 0) {
-        super(new Uint8Array(1).fill(initialValue));
+    public constructor(buffer?: ArrayBufferLike, index = 0) {
+        super(new Uint8Array(buffer ?? new SharedArrayBuffer(1)), index);
     }
 }
 
@@ -173,8 +180,8 @@ export class AtomicUint16 extends AtomicInteger {
     public readonly MIN = 0;
     public readonly byteLength = 2;
 
-    public constructor(initialValue = 0) {
-        super(new Uint16Array(1).fill(initialValue));
+    public constructor(buffer?: ArrayBufferLike, index = 0) {
+        super(new Uint16Array(buffer ?? new SharedArrayBuffer(2)), index);
     }
 }
 
@@ -183,8 +190,8 @@ export class AtomicUint32 extends AtomicInteger {
     public readonly MIN = 0;
     public readonly byteLength = 4;
 
-    public constructor(initialValue = 0) {
-        super(new Uint32Array(1).fill(initialValue));
+    public constructor(buffer?: ArrayBufferLike, index = 0) {
+        super(new Uint32Array(buffer ?? new SharedArrayBuffer(4)), index);
     }
 }
 
@@ -202,7 +209,7 @@ function bitConvert(value: number | bigint): number | bigint {
     return bigInt[0];
 }
 
-class AtomicNumberConstructor {
+class AtomicNumberConstructor implements AtomicNumber {
     public readonly MAX = Number.MAX_VALUE;
     public readonly MIN = Number.MIN_VALUE;
     public readonly byteLength: number = 8;
@@ -211,6 +218,11 @@ class AtomicNumberConstructor {
     public constructor(initialValue: number = 0) {
         this.array = new BigUint64Array(1).fill(BigInt(initialValue));
     }
+
+    public get buffer(): ArrayBufferLike {
+        return this.array.buffer;
+    }
+
 
     public get(): number {
         return bitConvert(Atomics.load(this.array, 0));
