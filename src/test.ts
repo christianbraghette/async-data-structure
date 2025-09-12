@@ -1,26 +1,98 @@
-import { AsyncMap, safeVar } from "./index.js";
+import { Mutex } from './semaphores.js'; // correggi path
 
-console.log("Started!");
+export class TestMutex extends Mutex {
+    public acquire = super.acquire;
+    public run = super.run;
+    public isLocked = super.isLocked;
+    public reset = super.reset;
+}
 
-const x = safeVar(10);
+jest.setTimeout(10000);
 
-x.get().then(console.log);
+describe('AsyncMutex', () => {
+    let mutex: TestMutex;
 
-const map = new AsyncMap<number, string>();
+    beforeEach(() => {
+        mutex = new TestMutex();
+    });
 
-setTimeout(async () => {
-    map.set(1, "asd");
-    map.get(1).then(console.log)
-    map.set(1, "asdfgsf");
-}, 100);
+    test('acquire allows only one task at a time', async () => {
+        let counter = 0;
 
+        async function task() {
+            const release = await mutex.acquire();
+            const local = counter;
+            await new Promise(r => setTimeout(r, 50));
+            counter = local + 1;
+            release();
+        }
 
-setTimeout(async () => {
-    console.log(await map.get(1));
-}, 200);
+        await Promise.all([task(), task()]);
+        expect(counter).toBe(2);
+    });
 
-setTimeout(async () => {
-    process.exit();
-}, 1000);
+    test('runExclusive executes function exclusively and returns result', async () => {
+        const result = await mutex.run(async () => {
+            await new Promise(r => setTimeout(r, 30));
+            return 'done';
+        });
+        expect(result).toBe('done');
+    });
 
-//console.log(await cache.get("23"));
+    test('runExclusive releases lock even if function throws', async () => {
+        await expect(
+            mutex.run(async () => {
+                throw new Error('fail');
+            })
+        ).rejects.toThrow('fail');
+
+        // se il lock non fosse rilasciato, questo acquire rimarrebbe bloccato
+        const release = await mutex.acquire();
+        release();
+    });
+
+    test('queued acquires are served in order', async () => {
+        const order: number[] = [];
+
+        async function task(id: number, delay = 0) {
+            await new Promise(r => setTimeout(r, delay));
+            const release = await mutex.acquire();
+            order.push(id);
+            await new Promise(r => setTimeout(r, 20));
+            release();
+        }
+
+        await Promise.all([
+            task(1, 0),
+            task(2, 5),
+            task(3, 10),
+        ]);
+
+        expect(order).toEqual([1, 2, 3]);
+    });
+
+    test('reset rejects all pending acquires', async () => {
+        const first = mutex.acquire(); // prende subito
+        const second = mutex.acquire(); // va in coda
+
+        mutex.reset();
+
+        await expect(first).resolves.toBeInstanceOf(Function);
+        await expect(second).rejects.toBe('reset');
+    });
+
+    test('stress test: many tasks increment safely', async () => {
+        let counter = 0;
+
+        const tasks = Array.from({ length: 20 }, () =>
+            mutex.run(async () => {
+                const local = counter;
+                await new Promise(r => setTimeout(r, Math.random() * 10));
+                counter = local + 1;
+            })
+        );
+
+        await Promise.all(tasks);
+        expect(counter).toBe(20);
+    });
+});
