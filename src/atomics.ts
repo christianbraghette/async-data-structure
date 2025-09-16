@@ -42,12 +42,12 @@ export interface AtomicNumber {
     public notify(count?: number): number*/
 }
 
-export abstract class AtomicInteger implements AtomicNumber {
+export abstract class AtomicInteger<T extends TypedArray> implements AtomicNumber {
     declare public readonly MAX: number;
     declare public readonly MIN: number;
     declare public readonly byteLength: number;
 
-    public constructor(private readonly array: TypedArray, private readonly index: number) { }
+    public constructor(protected readonly array: T, protected readonly index: number) { }
 
     public get buffer(): ArrayBufferLike {
         return this.array.buffer;
@@ -117,13 +117,6 @@ export abstract class AtomicInteger implements AtomicNumber {
         return Atomics.isLockFree(this.byteLength);
     }
 
-    /*public wait(value: number, timeout?: number): "ok" | "not-equal" | "timed-out" {
-        throw new Error("Method not implemented.");
-    }
-    public notify(count?: number): number {
-        throw new Error("Method not implemented.");
-    }*/
-
     public toString(): string {
         return `AtomicInteger(${this.get()})`;
     }
@@ -135,7 +128,7 @@ export abstract class AtomicInteger implements AtomicNumber {
     [Symbol.toStringTag] = "object AtomicInteger";
 }
 
-export class AtomicInt8 extends AtomicInteger {
+export class AtomicInt8 extends AtomicInteger<Int8Array> {
     public readonly MAX = 127;
     public readonly MIN = -128;
     public readonly byteLength = 1;
@@ -145,7 +138,7 @@ export class AtomicInt8 extends AtomicInteger {
     }
 }
 
-export class AtomicInt16 extends AtomicInteger {
+export class AtomicInt16 extends AtomicInteger<Int16Array> {
     public readonly MAX = 32767;
     public readonly MIN = -32768;
     public readonly byteLength = 2;
@@ -155,7 +148,7 @@ export class AtomicInt16 extends AtomicInteger {
     }
 }
 
-export class AtomicInt32 extends AtomicInteger {
+export class AtomicInt32 extends AtomicInteger<Int32Array> {
     public readonly MAX = 2147483647;
     public readonly MIN = -2147483648;
     public readonly byteLength = 4;
@@ -163,9 +156,29 @@ export class AtomicInt32 extends AtomicInteger {
     public constructor(buffer?: ArrayBufferLike, index = 0) {
         super(new Int32Array(buffer ?? new SharedArrayBuffer(4)), index);
     }
+
+    public wait(value: number, timeout?: number): "ok" | "not-equal" | "timed-out" {
+        return Atomics.wait(this.array, this.index, value, timeout);
+    }
+
+    //public waitAsync(value: number, timeout?: number): Promise<"ok" | "timed-out"> {
+        /*return new Promise((resolve, reject) => {
+            const res = Atomics.wait(this.array, this.index, value, timeout);
+            if (res === 'not-equal')
+                reject("not-equal");
+            else
+                resolve(res);
+        });*/
+    //}
+
+    public notify(count?: number): number {
+        if (this.array instanceof Int32Array)
+            return Atomics.notify(this.array, this.index, count);
+        throw new Error("Unsupported array type");
+    }
 }
 
-export class AtomicUint8 extends AtomicInteger {
+export class AtomicUint8 extends AtomicInteger<Uint8Array> {
     public readonly MAX = 255;
     public readonly MIN = 0;
     public readonly byteLength = 1;
@@ -175,7 +188,7 @@ export class AtomicUint8 extends AtomicInteger {
     }
 }
 
-export class AtomicUint16 extends AtomicInteger {
+export class AtomicUint16 extends AtomicInteger<Uint16Array> {
     public readonly MAX = 65535;
     public readonly MIN = 0;
     public readonly byteLength = 2;
@@ -185,7 +198,7 @@ export class AtomicUint16 extends AtomicInteger {
     }
 }
 
-export class AtomicUint32 extends AtomicInteger {
+export class AtomicUint32 extends AtomicInteger<Uint32Array> {
     public readonly MAX = 4294967295;
     public readonly MIN = 0;
     public readonly byteLength = 4;

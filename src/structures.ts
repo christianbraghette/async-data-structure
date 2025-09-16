@@ -1,4 +1,4 @@
-import { Mutex, Semaphore } from './semaphores'
+import { Mutex } from './semaphores'
 
 export class SafeVar<T> {
     private mutex = new Mutex();

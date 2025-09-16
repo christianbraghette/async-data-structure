@@ -12,11 +12,11 @@ export type ReleaseFunction = () => void;
  * to a finite number of resources (permits).
  */
 export class Semaphore {
-    private readonly count: AtomicNumber;
+    private count: number;
     private readonly queue = new Array<{ resolve: (release: ReleaseFunction) => void, reject: (reason: 'reset' | 'error') => void }>();
 
-    public constructor(private readonly maxCount: number, count?: AtomicNumber) {
-        this.count = count ?? new AtomicNumber(maxCount);
+    public constructor(private readonly maxCount: number) {
+        this.count = maxCount;
     }
 
     /**
@@ -38,8 +38,7 @@ export class Semaphore {
             this.acquire().then((release) => callbackfn(release)).catch((error) => { throw error; });
             return;
         }
-        const old = this.count.sub();
-        if (old > 0)
+        if (this.count-- > 0)
             return Promise.resolve(this.createRelease());
         return new Promise((resolve, reject) => this.queue.push({ resolve, reject }))
     }
@@ -49,8 +48,7 @@ export class Semaphore {
         return (): void => {
             if (!used) return;
             used = true;
-            const old = this.count.add();
-            if (old < 0)
+            if (this.count++ < 0)
                 this.queue.shift()?.resolve(this.createRelease());
         }
     }
@@ -64,10 +62,9 @@ export class Semaphore {
      * can be obtained immediately.
      */
     public tryAcquire(): ReleaseFunction | undefined {
-        const old = this.count.sub();
-        if (old > 0)
+        if (this.count-- > 0)
             return this.createRelease();
-        this.count.add();
+        this.count++;
         return;
     }
 
@@ -77,7 +74,7 @@ export class Semaphore {
      * @returns `true` if the lock is held, `false` otherwise.
      */
     public isLocked(): boolean {
-        return this.count.get() < 1;
+        return this.count < 1;
     };
 
     /**
@@ -102,7 +99,7 @@ export class Semaphore {
             const next = this.queue.shift()!;
             next.resolve(() => { });
         }
-        this.count.set(this.maxCount);
+        this.count = this.maxCount;
     }
 
     /**
@@ -114,7 +111,7 @@ export class Semaphore {
      */
     public reset() {
         this.queue.forEach(({ reject }) => reject('reset'));
-        this.count.set(this.maxCount);
+        this.count = this.maxCount;
         return;
     }
 
